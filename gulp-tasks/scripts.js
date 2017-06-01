@@ -5,6 +5,7 @@ var eslint = require('gulp-eslint');
 var browserify = require('browserify');
 var exorcist = require('exorcist');
 var mold = require('mold-source-map');
+var browserifyShader = require('browserify-shader');
 
 const lint = function(){
     return gulp.src(`${pkg.config.src}/**/*.js`)
@@ -18,7 +19,8 @@ const build = function(){
             debug: true
         })
         .transform('babelify', {
-            presets: ['es2015', 'react']
+            presets: ['es2015', 'react'],
+            plugins: ['glslify']
         })
         .bundle()
         .pipe(mold.transformSourcesRelativeTo(`${pkg.config.scripts}/site`))

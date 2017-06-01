@@ -1,21 +1,43 @@
-import { Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, MeshBasicMaterial, Mesh, PlaneGeometry } from 'three';
+import glsl from 'glslify';
+import { Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, ShaderMaterial, MeshBasicMaterial, Mesh, PlaneGeometry, Vector2, Vector3 } from 'three';
 
-let width = window.innerWidth;
-let height = window.innerHeight;
+let scanlines = glsl`
+uniform vec2 u_resolution;
+uniform sampler2D map;
+
+void main() {
+  vec2 st = gl_FragCoord.xy/u_resolution;
+  vec4 color = vec4(0.0, st.y, 0.0, 1.0);
+  float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));
+
+  gl_FragColor = color * line;
+}
+`;
+
+let renderer = new WebGLRenderer({ antialias: true });
+let canvas = renderer.domElement;
+document.body.appendChild(canvas);
+let bounds = canvas.getBoundingClientRect();
+
+let width = Math.ceil(bounds.width);
+let height = Math.ceil(bounds.height);
+
 let scene = new Scene();
-
-let renderer = new WebGLRenderer();
 renderer.setSize(width, height);
-document.body.appendChild( renderer.domElement );
 
 let geometry = new BoxGeometry( 1, 1, 1 );
-let material = new MeshBasicMaterial( { color: 0x00ff00, wireframe: true } );
-let cube = new Mesh( geometry, material );
-scene.add( cube );
+let groundMaterial = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+let m = new ShaderMaterial({ fragmentShader: scanlines });
+m.uniforms.u_resolution = { type: 'v2', value: new Vector2(width, height) };
 
-let groundGeometry = new PlaneGeometry(18, 5, 16, 16);
-let ground = new Mesh(groundGeometry, material);
-ground.rotation.x = 0.5;
+
+let groundWidth = 16;
+let groundDepth = 16;
+let groundGeometry = new PlaneGeometry(groundWidth, groundDepth, 16, 16);
+let ground = new Mesh(groundGeometry, m);
+ground.rotation.x = 0.1;
+ground.rotation.z = 0.04;
+ground.geometry.vertices = ground.geometry.vertices.map(v => new Vector3(v.x, v.y, Math.random() * 2 * Math.abs(v.x)/groundWidth))
 scene.add(ground);
 
 
@@ -26,7 +48,7 @@ camera.rotateX(Math.PI/2);
 
 function render() {
 	window.requestAnimationFrame( render );
-  cube.rotation.set(cube.rotation.x + 0.01, cube.rotation.y + 0.01, cube.rotation.z + 0.01);
+  ground.rotateOnAxis(new Vector3(0, 0, 1), 0.001);
 	renderer.render( scene, camera );
 }
 render();

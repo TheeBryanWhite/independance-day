@@ -1,4 +1,16 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+module.exports = function(strings) {
+  if (typeof strings === 'string') strings = [strings]
+  var exprs = [].slice.call(arguments,1)
+  var parts = []
+  for (var i = 0; i < strings.length-1; i++) {
+    parts.push(strings[i], exprs[i] || '')
+  }
+  parts.push(strings[i])
+  return parts.join('')
+}
+
+},{}],2:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -43684,27 +43696,44 @@
 
 })));
 
-},{}],2:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 'use strict';
+
+var _glslify = require('glslify');
+
+var _glslify2 = _interopRequireDefault(_glslify);
 
 var _three = require('three');
 
-var width = window.innerWidth;
-var height = window.innerHeight;
-var scene = new _three.Scene();
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var renderer = new _three.WebGLRenderer();
+var scanlines = '#define GLSLIFY 1\nuniform vec2 u_resolution;\nuniform sampler2D map;\n\nvoid main() {\n  vec2 st = gl_FragCoord.xy/u_resolution;\n  vec4 color = vec4(0.0, st.y, 0.0, 1.0);\n  float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));\n\n  gl_FragColor = color * line;\n}\n';
+
+var renderer = new _three.WebGLRenderer({ antialias: true });
+var canvas = renderer.domElement;
+document.body.appendChild(canvas);
+var bounds = canvas.getBoundingClientRect();
+
+var width = Math.ceil(bounds.width);
+var height = Math.ceil(bounds.height);
+
+var scene = new _three.Scene();
 renderer.setSize(width, height);
-document.body.appendChild(renderer.domElement);
 
 var geometry = new _three.BoxGeometry(1, 1, 1);
-var material = new _three.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-var cube = new _three.Mesh(geometry, material);
-scene.add(cube);
+var groundMaterial = new _three.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+var m = new _three.ShaderMaterial({ fragmentShader: scanlines });
+m.uniforms.u_resolution = { type: 'v2', value: new _three.Vector2(width, height) };
 
-var groundGeometry = new _three.PlaneGeometry(18, 5, 16, 16);
-var ground = new _three.Mesh(groundGeometry, material);
-ground.rotation.x = 0.5;
+var groundWidth = 16;
+var groundDepth = 16;
+var groundGeometry = new _three.PlaneGeometry(groundWidth, groundDepth, 16, 16);
+var ground = new _three.Mesh(groundGeometry, m);
+ground.rotation.x = 0.1;
+ground.rotation.z = 0.04;
+ground.geometry.vertices = ground.geometry.vertices.map(function (v) {
+  return new _three.Vector3(v.x, v.y, Math.random() * 2 * Math.abs(v.x) / groundWidth);
+});
 scene.add(ground);
 
 var camera = new _three.PerspectiveCamera(75, width / height, 0.1, 1000);
@@ -43713,11 +43742,11 @@ camera.position.y = -4;
 camera.rotateX(Math.PI / 2);
 
 function render() {
-	window.requestAnimationFrame(render);
-	cube.rotation.set(cube.rotation.x + 0.01, cube.rotation.y + 0.01, cube.rotation.z + 0.01);
-	renderer.render(scene, camera);
+  window.requestAnimationFrame(render);
+  ground.rotateOnAxis(new _three.Vector3(0, 0, 1), 0.001);
+  renderer.render(scene, camera);
 }
 render();
 
-},{"three":1}]},{},[2])
+},{"glslify":1,"three":2}]},{},[3])
 //# sourceMappingURL=main.js.map
