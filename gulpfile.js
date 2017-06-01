@@ -21,11 +21,5 @@ gulp.task('copy', function(){
 
 gulp.task('default', ['sass', 'js', 'browser-sync-init'], function(){
     gulp.watch(`${pkg.config.src}/**/*.scss`, ['sass']);
-
     gulp.watch(`${pkg.config.src}/**/*.js`, ['js-watch']);
-
-    gulp.watch([
-        `${pkg.config.src}/**`,
-        '!**/*.scss'
-    ], ['reload-watch']);
 });
