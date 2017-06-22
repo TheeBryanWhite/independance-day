@@ -1,54 +1,71 @@
-import glsl from 'glslify';
-import { Scene, PerspectiveCamera, WebGLRenderer, BoxGeometry, ShaderMaterial, MeshBasicMaterial, Mesh, PlaneGeometry, Vector2, Vector3 } from 'three';
+import * as THREE from 'three'
 
-let scanlines = glsl`
-uniform vec2 u_resolution;
-uniform sampler2D map;
+let EffectComposer = require('three-effectcomposer')(THREE)
 
-void main() {
-  vec2 st = gl_FragCoord.xy/u_resolution;
-  vec4 color = vec4(0.0, st.y, 0.0, 1.0);
-  float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));
 
-  gl_FragColor = color * line;
+import { beep, tap, getWaveform } from './tone-source'
+let work = require('webworkify')
+let metronome = work(require('./metronome.worker'))
+let beat = 0;
+
+let workerMetronome = true;
+
+if(workerMetronome){
+  metronome.addEventListener('message', onMetronomeTick);
+  metronome.postMessage('start');
 }
-`;
 
-let renderer = new WebGLRenderer({ antialias: true });
+
+import sceneFactory from './scene-factory';
+
+//Instantiate a renderer and append it to the body
+let renderer = new THREE.WebGLRenderer({ antialias: true });
 let canvas = renderer.domElement;
-document.body.appendChild(canvas);
-let bounds = canvas.getBoundingClientRect();
 
+window.document.body.appendChild(canvas);
+
+//Check how big that render canvas is and the set width, height
+let bounds = canvas.getBoundingClientRect();
 let width = Math.ceil(bounds.width);
 let height = Math.ceil(bounds.height);
-
-let scene = new Scene();
 renderer.setSize(width, height);
 
-let geometry = new BoxGeometry( 1, 1, 1 );
-let groundMaterial = new MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
-let m = new ShaderMaterial({ fragmentShader: scanlines });
-m.uniforms.u_resolution = { type: 'v2', value: new Vector2(width, height) };
+//Create our scene
+let scene = sceneFactory();
 
-
-let groundWidth = 16;
-let groundDepth = 16;
-let groundGeometry = new PlaneGeometry(groundWidth, groundDepth, 16, 16);
-let ground = new Mesh(groundGeometry, m);
-ground.rotation.x = 0.1;
-ground.rotation.z = 0.04;
-ground.geometry.vertices = ground.geometry.vertices.map(v => new Vector3(v.x, v.y, Math.random() * 2 * Math.abs(v.x)/groundWidth))
-scene.add(ground);
-
-
-let camera = new PerspectiveCamera(75, width / height, 0.1, 1000 );
+//Create a new camera and position it to face the box in the scene
+let camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000 );
 camera.position.z = 0.5;
 camera.position.y = -4;
 camera.rotateX(Math.PI/2);
 
+var canvasCtx = canvas.getContext('webgl');
+canvasCtx.strokeStyle = 'rgb(250, 250, 250)';
+canvasCtx.lineWidth = 2;
+
+//Render the scene on each animation frame, making any scene or camera updates
 function render() {
-	window.requestAnimationFrame( render );
-  ground.rotateOnAxis(new Vector3(0, 0, 1), 0.001);
-	renderer.render( scene, camera );
+	window.requestAnimationFrame(render);
+  renderer.render(scene, camera);
+  scene.onFrame();
 }
 render();
+
+// let composer = new EffectComposer(renderer);
+// let renderPass = new EffectComposer.RenderPass(scene, camera);
+// renderPass.renderToScreen = true;
+// composer.addPass(renderPass);
+
+let toneIndex = 0;
+function onMetronomeTick(){
+  let tones = [ 261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.26 ];
+
+
+  if(beat%4 === 0){
+    beep(tones[toneIndex] * 0.5);
+    toneIndex = (toneIndex+1) % tones.length;
+  }
+
+
+  beat = (beat+1)%16;
+}

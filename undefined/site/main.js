@@ -44092,89 +44092,6 @@ module.exports = function(THREE, EffectComposer) {
 })));
 
 },{}],9:[function(require,module,exports){
-var bundleFn = arguments[3];
-var sources = arguments[4];
-var cache = arguments[5];
-
-var stringify = JSON.stringify;
-
-module.exports = function (fn, options) {
-    var wkey;
-    var cacheKeys = Object.keys(cache);
-
-    for (var i = 0, l = cacheKeys.length; i < l; i++) {
-        var key = cacheKeys[i];
-        var exp = cache[key].exports;
-        // Using babel as a transpiler to use esmodule, the export will always
-        // be an object with the default export as a property of it. To ensure
-        // the existing api and babel esmodule exports are both supported we
-        // check for both
-        if (exp === fn || exp && exp.default === fn) {
-            wkey = key;
-            break;
-        }
-    }
-
-    if (!wkey) {
-        wkey = Math.floor(Math.pow(16, 8) * Math.random()).toString(16);
-        var wcache = {};
-        for (var i = 0, l = cacheKeys.length; i < l; i++) {
-            var key = cacheKeys[i];
-            wcache[key] = key;
-        }
-        sources[wkey] = [
-            Function(['require','module','exports'], '(' + fn + ')(self)'),
-            wcache
-        ];
-    }
-    var skey = Math.floor(Math.pow(16, 8) * Math.random()).toString(16);
-
-    var scache = {}; scache[wkey] = wkey;
-    sources[skey] = [
-        Function(['require'], (
-            // try to call default if defined to also support babel esmodule
-            // exports
-            'var f = require(' + stringify(wkey) + ');' +
-            '(f.default ? f.default : f)(self);'
-        )),
-        scache
-    ];
-
-    var workerSources = {};
-    resolveSources(skey);
-
-    function resolveSources(key) {
-        workerSources[key] = true;
-
-        for (var depPath in sources[key][1]) {
-            var depKey = sources[key][1][depPath];
-            if (!workerSources[depKey]) {
-                resolveSources(depKey);
-            }
-        }
-    }
-
-    var src = '(' + bundleFn + ')({'
-        + Object.keys(workerSources).map(function (key) {
-            return stringify(key) + ':['
-                + sources[key][0]
-                + ',' + stringify(sources[key][1]) + ']'
-            ;
-        }).join(',')
-        + '},{},[' + stringify(skey) + '])'
-    ;
-
-    var URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
-
-    var blob = new Blob([src], { type: 'text/javascript' });
-    if (options && options.bare) { return blob; }
-    var workerUrl = URL.createObjectURL(blob);
-    var worker = new Worker(workerUrl);
-    worker.objectURL = workerUrl;
-    return worker;
-};
-
-},{}],10:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -44193,14 +44110,12 @@ var MAGENTA = exports.MAGENTA = new _three.Vector3(1.0, 0.0, 1.0);
 var YELLOW = exports.YELLOW = new _three.Vector3(1.0, 1.0, 0.0);
 var AMBER = exports.AMBER = new _three.Vector3(1.0, 0.75, 0.0);
 
-},{"three":8}],11:[function(require,module,exports){
+},{"three":8}],10:[function(require,module,exports){
 'use strict';
 
 var _three = require('three');
 
 var THREE = _interopRequireWildcard(_three);
-
-var _toneSource = require('./tone-source');
 
 var _sceneFactory = require('./scene-factory');
 
@@ -44212,21 +44127,9 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 var EffectComposer = require('three-effectcomposer')(THREE);
 
-var work = require('webworkify');
-var metronome = work(require('./metronome.worker'));
-var beat = 0;
-
-var workerMetronome = true;
-
-if (workerMetronome) {
-  metronome.addEventListener('message', onMetronomeTick);
-  metronome.postMessage('start');
-}
-
 //Instantiate a renderer and append it to the body
 var renderer = new THREE.WebGLRenderer({ antialias: true });
 var canvas = renderer.domElement;
-
 window.document.body.appendChild(canvas);
 
 //Check how big that render canvas is and the set width, height
@@ -44244,10 +44147,6 @@ camera.position.z = 0.5;
 camera.position.y = -4;
 camera.rotateX(Math.PI / 2);
 
-var canvasCtx = canvas.getContext('webgl');
-canvasCtx.strokeStyle = 'rgb(250, 250, 250)';
-canvasCtx.lineWidth = 2;
-
 //Render the scene on each animation frame, making any scene or camera updates
 function render() {
   window.requestAnimationFrame(render);
@@ -44261,19 +44160,7 @@ render();
 // renderPass.renderToScreen = true;
 // composer.addPass(renderPass);
 
-var toneIndex = 0;
-function onMetronomeTick() {
-  var tones = [261.63, 293.66, 329.63, 349.23, 392, 440, 493.88, 523.26];
-
-  if (beat % 4 === 0) {
-    (0, _toneSource.beep)(tones[toneIndex] * 0.5);
-    toneIndex = (toneIndex + 1) % tones.length;
-  }
-
-  beat = (beat + 1) % 16;
-}
-
-},{"./metronome.worker":14,"./scene-factory":15,"./tone-source":16,"three":8,"three-effectcomposer":3,"webworkify":9}],12:[function(require,module,exports){
+},{"./scene-factory":13,"three":8,"three-effectcomposer":3}],11:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -44281,8 +44168,8 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.ArcadeRetro = undefined;
 
-var _templateObject = _taggedTemplateLiteral(['\n            attribute vec3 center;\n            varying vec3 vCenter;\n\n            uniform float peak;\n\n            vec2 normalCartesianToPolar(vec2 st){\n                vec2 toCenter = vec2(0.5)-st;\n                float angle = atan(toCenter.y,toCenter.x) / 6.28;\n                float radius = length(toCenter)*2.0;\n\n                return vec2(radius, angle);\n            }\n\n            void main() {\n                vCenter = center;\n                vec4 pos = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );\n                pos.x *= peak;\n                pos.y *= peak;\n                gl_Position = pos;\n            }\n        '], ['\n            attribute vec3 center;\n            varying vec3 vCenter;\n\n            uniform float peak;\n\n            vec2 normalCartesianToPolar(vec2 st){\n                vec2 toCenter = vec2(0.5)-st;\n                float angle = atan(toCenter.y,toCenter.x) / 6.28;\n                float radius = length(toCenter)*2.0;\n\n                return vec2(radius, angle);\n            }\n\n            void main() {\n                vCenter = center;\n                vec4 pos = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );\n                pos.x *= peak;\n                pos.y *= peak;\n                gl_Position = pos;\n            }\n        ']),
-    _templateObject2 = _taggedTemplateLiteral(['\n            uniform vec3 color;\n            uniform float fog;\n\n            varying vec3 vCenter;\n\n            float edgeFactorTri() {\n                vec3 d = fwidth(vCenter.xyz);\n                vec3 a3 = smoothstep(vec3(0.0), d * 1.5, vCenter.xyz);\n                return min(min(a3.x, a3.y), a3.z);\n            }\n\n            void main() {\n                vec3 face = mix(vec3(0.0), color, 0.15);\n                vec3 color = mix(color, face, edgeFactorTri());\n                float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));\n                color = color * line;\n\n                gl_FragColor.rgb = mix(color, color * gl_FragCoord.w, fog);\n            }\n        '], ['\n            uniform vec3 color;\n            uniform float fog;\n\n            varying vec3 vCenter;\n\n            float edgeFactorTri() {\n                vec3 d = fwidth(vCenter.xyz);\n                vec3 a3 = smoothstep(vec3(0.0), d * 1.5, vCenter.xyz);\n                return min(min(a3.x, a3.y), a3.z);\n            }\n\n            void main() {\n                vec3 face = mix(vec3(0.0), color, 0.15);\n                vec3 color = mix(color, face, edgeFactorTri());\n                float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));\n                color = color * line;\n\n                gl_FragColor.rgb = mix(color, color * gl_FragCoord.w, fog);\n            }\n        ']);
+var _templateObject = _taggedTemplateLiteral(['\n            attribute vec3 center;\n            varying vec3 vCenter;\n\n            vec2 normalCartesianToPolar(vec2 st){\n                vec2 toCenter = vec2(0.5)-st;\n                float angle = atan(toCenter.y,toCenter.x) / 6.28;\n                float radius = length(toCenter)*2.0;\n\n                return vec2(radius, angle);\n            }\n\n            void main() {\n                vCenter = center;\n                gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );\n            }\n        '], ['\n            attribute vec3 center;\n            varying vec3 vCenter;\n\n            vec2 normalCartesianToPolar(vec2 st){\n                vec2 toCenter = vec2(0.5)-st;\n                float angle = atan(toCenter.y,toCenter.x) / 6.28;\n                float radius = length(toCenter)*2.0;\n\n                return vec2(radius, angle);\n            }\n\n            void main() {\n                vCenter = center;\n                gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );\n            }\n        ']),
+    _templateObject2 = _taggedTemplateLiteral(['\n            uniform vec3 color;\n\n            varying vec3 vCenter;\n\n            float edgeFactorTri() {\n                vec3 d = fwidth(vCenter.xyz);\n                vec3 a3 = smoothstep(vec3(0.0), d * 1.5, vCenter.xyz);\n                return min(min(a3.x, a3.y), a3.z);\n            }\n\n            void main() {\n                vec3 face = mix(vec3(0.0), color, 0.15);\n                vec3 color = mix(color, face, edgeFactorTri());\n                float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));\n\n                gl_FragColor.rgb = color * line;\n            }\n        '], ['\n            uniform vec3 color;\n\n            varying vec3 vCenter;\n\n            float edgeFactorTri() {\n                vec3 d = fwidth(vCenter.xyz);\n                vec3 a3 = smoothstep(vec3(0.0), d * 1.5, vCenter.xyz);\n                return min(min(a3.x, a3.y), a3.z);\n            }\n\n            void main() {\n                vec3 face = mix(vec3(0.0), color, 0.15);\n                vec3 color = mix(color, face, edgeFactorTri());\n                float line = gl_FragCoord.y - (2.0 * floor(gl_FragCoord.y/2.0));\n\n                gl_FragColor.rgb = color * line;\n            }\n        ']);
 
 var _glslify = require('glslify');
 
@@ -44298,13 +44185,10 @@ var ArcadeRetro = exports.ArcadeRetro = function ArcadeRetro() {
     var config = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 
     var color = config.color ? config.color : new _three.Vector3(0.0, 1.0, 0.0);
-    var fog = parseFloat(config.fog);
 
     var material = new _three.ShaderMaterial({
         uniforms: {
-            color: { type: 'v3', value: color },
-            fog: { type: 'f', value: fog },
-            peak: { type: 'f', value: 1.0 }
+            color: { type: 'v3', value: color }
         },
 
         vertexShader: (0, _glslify2.default)(_templateObject),
@@ -44315,7 +44199,7 @@ var ArcadeRetro = exports.ArcadeRetro = function ArcadeRetro() {
     return material;
 };
 
-},{"glslify":1,"three":8}],13:[function(require,module,exports){
+},{"glslify":1,"three":8}],12:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -44380,8 +44264,6 @@ function Box() {
   var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
       _ref$color = _ref.color,
       color = _ref$color === undefined ? Colors.GREEN : _ref$color,
-      _ref$fog = _ref.fog,
-      fog = _ref$fog === undefined ? 0.0 : _ref$fog,
       _ref$width = _ref.width,
       width = _ref$width === undefined ? 1 : _ref$width,
       _ref$depth = _ref.depth,
@@ -44389,7 +44271,7 @@ function Box() {
       _ref$height = _ref.height,
       height = _ref$height === undefined ? 1 : _ref$height;
 
-  var material = Materials.ArcadeRetro({ color: color, fog: fog });
+  var material = Materials.ArcadeRetro({ color: color });
   var geometry = new _three.BoxGeometry(width, depth, height);
 
   return MeshFactory(geometry, material);
@@ -44399,8 +44281,6 @@ function Ground() {
   var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
       _ref2$color = _ref2.color,
       color = _ref2$color === undefined ? Colors.GREEN : _ref2$color,
-      _ref2$fog = _ref2.fog,
-      fog = _ref2$fog === undefined ? 0.0 : _ref2$fog,
       _ref2$width = _ref2.width,
       width = _ref2$width === undefined ? 16 : _ref2$width,
       _ref2$depth = _ref2.depth,
@@ -44414,52 +44294,13 @@ function Ground() {
       _ref2$gridZ = _ref2.gridZ,
       gridZ = _ref2$gridZ === undefined ? 4 : _ref2$gridZ;
 
-  var material = Materials.ArcadeRetro({ color: color, fog: fog });
+  var material = Materials.ArcadeRetro({ color: color });
   var geometry = GroundGeometry(width, depth, height, gridX, gridY, gridZ);
 
   return MeshFactory(geometry, material);
 }
 
-},{"./colors":10,"./materials":12,"three":8}],14:[function(require,module,exports){
-'use strict';
-
-var interval = null;
-var beatsPerMinute = 108;
-
-module.exports = function (self) {
-    self.addEventListener('message', onReceiveMessage);
-
-    function onReceiveMessage(e) {
-        switch (e.data) {
-            case 'start':
-                start();
-                break;
-
-            case 'stop':
-                stop();
-                break;
-        }
-    }
-
-    function start() {
-        stop();
-        tick();
-        setInterval(tick, 60000 / beatsPerMinute / 4);
-    }
-
-    function stop() {
-        if (interval) {
-            clearInterval(interval);
-            interval = null;
-        }
-    }
-
-    function tick() {
-        self.postMessage('tick');
-    }
-};
-
-},{}],15:[function(require,module,exports){
+},{"./colors":9,"./materials":11,"three":8}],13:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -44477,133 +44318,27 @@ var THREE = _interopRequireWildcard(_three);
 
 var _meshFactory = require('./mesh-factory');
 
-var _toneSource = require('./tone-source');
-
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } else { var newObj = {}; if (obj != null) { for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) newObj[key] = obj[key]; } } newObj.default = obj; return newObj; } }
 
 //This function uses the methods from mesh-factory.js to generate/animate the scene
 function sceneFactory() {
   var scene = new THREE.Scene();
 
-  var barCount = 16;
-  var barSize = 0.1;
-  var barHeight = barSize * 20.0;
-  var audioBars = [];
-  for (var i = 0; i < barCount; i++) {
-    var bar = (0, _meshFactory.Box)({
-      color: Colors.BLUE,
-      fog: 0.0,
-      width: barSize,
-      depth: barSize,
-      height: barHeight
-    });
-
-    bar.position.x = i / (barCount - 1) * 3.0 - 1.5;
-    bar.position.z = barHeight * 0.5;
-    audioBars.push(bar);
-    scene.add(bar);
-  }
-
-  var box = (0, _meshFactory.Box)({ color: Colors.RED, fog: 0.0 });
+  var box = (0, _meshFactory.Box)({ color: Colors.RED });
   box.position.z = 1;
   scene.add(box);
 
-  var ground = (0, _meshFactory.Ground)({ color: Colors.AMBER, fog: 1.0 });
+  var ground = (0, _meshFactory.Ground)({ color: Colors.AMBER });
   scene.add(ground);
-
-  var now = Date.now();
-
-  var peak = 0.0;
-  var peakDecay = 0.1;
 
   //Quick little function I'll call from main.js to animate stuff on each frame
   scene.onFrame = function () {
     box.geometry.rotateZ(0.05);
     box.geometry.rotateY(0.033);
-
-    var waveform = (0, _toneSource.getWaveform)();
-    var frequencies = (0, _toneSource.getFrequencies)();
-
-    for (i = 0; i < frequencies.length; i++) {
-      var f = frequencies[i] / 255;
-
-      audioBars[i].scale.z = f;
-      audioBars[i].position.z = barHeight * f * 0.5;
-    }
-
-    var wavePeak = Math.max.apply(null, waveform);
-    peak = Math.max(wavePeak, peak - peakDecay);
-    box.material.uniforms.peak.value = 1.0 + 0.5 * peak;
   };
 
   return scene;
 }
 
-},{"./colors":10,"./mesh-factory":13,"./tone-source":16,"three":8}],16:[function(require,module,exports){
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-    value: true
-});
-exports.beep = beep;
-exports.tap = tap;
-exports.getWaveform = getWaveform;
-exports.getFrequencies = getFrequencies;
-var audioContext = null;
-var beatsPerMeasure = 4;
-var tapLength = 0.05;
-var beepLength = 0.1;
-
-var measure = 0;
-var beat = 0;
-
-audioContext = new (window.AudioContext || window.webkitAudioContext)();
-var analyser = audioContext.createAnalyser();
-analyser.connect(audioContext.destination);
-var bufferLength = analyser.frequencyBinCount;
-var waveformData = new Float32Array(bufferLength);
-var frequencyData = new Uint8Array(16);
-
-var whiteNoise = generateWhiteNoiseBuffer();
-
-function generateWhiteNoiseBuffer() {
-    var buffer = audioContext.createBuffer(1, audioContext.sampleRate, audioContext.sampleRate);
-    var output = buffer.getChannelData(0);
-
-    for (var i = 0; i < audioContext.sampleRate; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
-
-    return buffer;
-}
-
-function beep(frequency) {
-    var o = audioContext.createOscillator();
-    o.connect(analyser);
-    // o.connect(audioContext.destination);
-    o.frequency.value = frequency;
-    o.start(audioContext.currentTime);
-    o.stop(audioContext.currentTime + beepLength);
-}
-
-function tap() {
-    var t = audioContext.createBufferSource();
-    // t.connect(audioContext.destination);
-    t.connect(analyser);
-    t.buffer = whiteNoise;
-    t.start(audioContext.currentTime);
-    t.stop(audioContext.currentTime + tapLength);
-}
-
-function getWaveform() {
-    analyser.getFloatTimeDomainData(waveformData);
-    return waveformData;
-}
-
-function getFrequencies() {
-    analyser.getByteFrequencyData(frequencyData);
-    return frequencyData;
-}
-
-},{}]},{},[11])
+},{"./colors":9,"./mesh-factory":12,"three":8}]},{},[10])
 //# sourceMappingURL=main.js.map

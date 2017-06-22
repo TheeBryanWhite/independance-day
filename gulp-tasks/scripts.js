@@ -5,27 +5,42 @@ var eslint = require('gulp-eslint');
 var browserify = require('browserify');
 var exorcist = require('exorcist');
 var mold = require('mold-source-map');
-var browserifyShader = require('browserify-shader');
+var babelify = require('babelify');
+var source = require('vinyl-source-stream');
+var buffer = require('vinyl-buffer');
+var colors = require('colors/safe');
+
+const handleError = function(err){
+    console.error('---------------------------');
+    console.error(colors.red.bold('ERROR Building JS Bundle!'));
+    console.error(colors.red(err.message));
+    console.error('---------------------------');
+
+    this.emit('end');
+}
+
+var bundler = browserify('src/js/main.js', {
+    debug: true
+});
+
+bundler.transform(babelify.configure({
+    sourceMapsAbsolute: true,
+    presets: ['es2015', 'react']
+}));
+
+function build(){
+    return bundler.bundle()
+        .on('error', handleError)
+        .pipe(exorcist('dist/main.js.map'))
+        .pipe(source('main.js'))
+        .pipe(buffer())
+        .pipe(gulp.dest('dist'))
+}
 
 const lint = function(){
-    return gulp.src(`${pkg.config.src}/**/*.js`)
+    return gulp.src('src/js/**/*.js')
         .pipe(eslint())
         .pipe(eslint.format())
         .pipe(eslint.failAfterError());
 }
-
-const build = function(){
-    return browserify(`${pkg.config.src}/js/main.js`, {
-            debug: true
-        })
-        .transform('babelify', {
-            presets: ['es2015', 'react'],
-            plugins: ['glslify']
-        })
-        .bundle()
-        .pipe(mold.transformSourcesRelativeTo(`${pkg.config.scripts}/site`))
-        .pipe(exorcist(`${pkg.config.dist}/main.js.map`))
-        .pipe(fs.createWriteStream(`${pkg.config.dist}/main.js`));
-}
-
 module.exports = { lint, build }
